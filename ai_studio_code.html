@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kernel VPN - Dashboard</title>
+    
+    <!-- ====================================================================== -->
+    <!-- ============================= ESTILOS CSS ============================ -->
+    <!-- ====================================================================== -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+        
+        :root {
+            --bg-dark: #0A0A10; --bg-medium: #16161F; --card-border: rgba(0, 255, 137, 0.15);
+            --text-primary: #E0E0E0; --text-secondary: #A0A0B2; --text-dark: #0A0A10;
+            --accent-green: #00FF89; --accent-red: #F85149; --accent-yellow: #FFC107; --accent-blue: #58a6ff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: var(--bg-dark); font-family: 'Poppins', sans-serif; overflow: hidden; color: var(--text-primary); }
+        
+        #preloader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-dark); display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.4s ease-out 1.5s, visibility 0.4s ease-out 1.5s; }
+        #preloader.hidden { opacity: 0; visibility: hidden; }
+        .loader-svg { width: 120px; height: 120px; } .loader-svg .bg-circle { stroke: #2a2a38; }
+        .loader-svg .fg-circle { transform-origin: 50% 50%; stroke-dasharray: 315; stroke-dashoffset: 315; animation: loader-circle 1.5s cubic-bezier(0.7, 0, 0.3, 1) forwards; stroke: var(--accent-green); }
+        .loader-svg .k-letter { opacity: 0; animation: loader-fadein 0.8s ease 0.4s forwards; fill: var(--text-primary); }
+        @keyframes loader-circle { to { stroke-dashoffset: 0; } } @keyframes loader-fadein { to { opacity: 1; } }
+
+        .app-container { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; padding: 15px; }
+        .app-layout { display: flex; flex-direction: column; width: 950px; max-width: 100%; height: 650px; max-height: 100%; background: var(--bg-medium); border-radius: 20px; border: 1px solid var(--card-border); overflow: hidden; position: relative; opacity: 0; transform: scale(0.98); transition: opacity 0.4s ease-out 1.5s, transform 0.4s ease-out 1.5s; box-shadow: 0 0 40px -10px rgba(0, 255, 137, 0.1); }
+        .app-layout.loaded { opacity: 1; transform: scale(1); }
+        .main-content { flex-grow: 1; position: relative; overflow-y: auto; }
+        .page { display: none; width: 100%; height: 100%; animation: page-fade-in 0.4s ease; padding: 25px; } .page.active { display: flex; flex-direction: column; }
+        @keyframes page-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .nav-menu-container { padding: 12px 0; background-color: var(--bg-dark); border-bottom: 1px solid var(--card-border); flex-shrink: 0; display: flex; justify-content: center; }
+        .nav-button-bar { display: flex; position: relative; background-color: var(--bg-medium); padding: 5px; border-radius: 12px; }
+        .nav-indicator { position: absolute; top: 5px; left: var(--_btn-l, 5px); width: var(--_btn-w, 50px); height: calc(100% - 10px); background-color: var(--accent-green); border-radius: 8px; box-shadow: 0 0 15px rgba(0, 255, 137, 0.3); transition: all 0.4s cubic-bezier(0.45, 0.05, 0.55, 0.95); }
+        .nav-button-bar .button { outline: 0 !important; border: 0 !important; width: 60px; height: 50px; background-color: transparent; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: color 0.3s ease; cursor: pointer; position: relative; z-index: 1; }
+        .nav-button-bar .button:hover { color: var(--accent-green); } .nav-button-bar .button.selected { color: var(--bg-dark); } .nav-button-bar .icon { width: 26px; height: 26px; stroke-width: 2; }
+        
+        .search-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 16, 0.6); backdrop-filter: blur(8px); z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .search-modal-overlay.active { opacity: 1; visibility: visible; }
+        .search-modal { position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%) scale(0.95); width: 90%; max-width: 500px; background: var(--bg-medium); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 1001; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .search-modal.active { transform: translate(-50%, -50%) scale(1); opacity: 1; visibility: visible; }
+        .search-modal-header { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--card-border); }
+        .search-modal-header .search-icon { width: 20px; height: 20px; color: var(--accent-green); flex-shrink: 0; }
+        .search-modal-header input { flex-grow: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 1em; font-family: 'Poppins', sans-serif; font-weight: 500; }
+        .search-modal-list { list-style: none; margin: 0; padding: 8px; max-height: 300px; overflow-y: auto; }
+        .search-modal-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s ease; }
+        .search-modal-list li:hover { background-color: rgba(0, 255, 137, 0.1); }
+        .search-modal-list .flag { font-size: 1.5em; }
+        .search-modal-list .server-name .country { font-weight: 600; } .search-modal-list .server-name .city { font-size: 0.9em; color: var(--text-secondary); }
+
+        #notification-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(150%); background: rgba(22, 22, 31, 0.8); backdrop-filter: blur(10px); color: var(--text-primary); padding: 12px 20px; border-radius: 8px; border: 1px solid var(--card-border); display: flex; align-items: center; gap: 10px; z-index: 9999; transition: transform 0.4s ease-in-out; font-size: 0.9em; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        #notification-toast.show { transform: translateX(-50%) translateY(0); }
+        #notification-toast svg { width: 22px; height: 22px; } #notification-toast.success svg { color: var(--accent-green); } #notification-toast.error svg { color: var(--accent-red); } #notification-toast.info svg { color: var(--accent-blue); }
+
+        /* --- PÁGINA CONEXÃO - ESTILO STEPPER --- */
+        .stepper-wrapper { display: flex; justify-content: center; align-items: flex-start; width: 100%;}
+        .stepper-box { background-color: var(--bg-medium); border-radius: 12px; padding: 32px; width: 100%; max-width: 550px; }
+        .stepper-step { display: flex; margin-bottom: 32px; position: relative; }
+        .stepper-step:last-child { margin-bottom: 0; }
+        .stepper-line { position: absolute; left: 19px; top: 40px; bottom: -32px; width: 2px; background-color: var(--card-border); z-index: 1; }
+        .stepper-step:last-child .stepper-line { display: none; }
+        .stepper-circle { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 16px; z-index: 2; font-weight: 700; transition: all 0.3s ease; }
+
+        .stepper-completed .stepper-circle { background-color: var(--accent-green); color: var(--text-dark); }
+        .stepper-active .stepper-circle { border: 2px solid var(--accent-green); color: var(--accent-green); }
+        .stepper-pending .stepper-circle { border: 2px solid var(--card-border); color: var(--text-secondary); }
+        
+        .stepper-content { flex: 1; padding-top: 8px; }
+        .stepper-content-inner { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out; }
+        .stepper-active .stepper-content-inner { max-height: 1000px; /* valor alto para permitir expansão */ }
+
+        .stepper-title { font-weight: 600; margin-bottom: 4px; transition: color 0.3s ease; }
+        .stepper-completed .stepper-title, .stepper-active .stepper-title { color: var(--text-primary); }
+        .stepper-pending .stepper-title { color: var(--text-secondary); }
+
+        .stepper-status { font-size: 13px; display: inline-block; padding: 2px 8px; border-radius: 12px; margin-top: 4px; font-weight: 600;}
+        .stepper-completed .stepper-status { background-color: rgba(0, 255, 137, 0.1); color: var(--accent-green); }
+        .stepper-active .stepper-status { background-color: rgba(88, 166, 255, 0.1); color: var(--accent-blue); }
+        .stepper-pending .stepper-status { background-color: rgba(160, 160, 178, 0.1); color: var(--text-secondary); }
+
+        .server-select-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 55px; padding: 0 15px; background-color: var(--bg-dark); border: 1px solid var(--card-border); border-radius: 12px; color: var(--text-secondary); font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer; transition: all 0.2s ease-out; margin-top: 16px; }
+        .server-select-btn:hover, .server-select-btn:focus-visible { border-color: var(--accent-green); background-color: rgba(0,0,0,0.2); }
+        .server-select-btn .btn-content { display: flex; align-items: center; gap: 12px; } .server-select-btn .icon { width: 24px; height: 24px; } .server-select-btn .flag { font-size: 1.5rem; }
+        .server-select-btn.selected { color: var(--text-primary); border-color: var(--accent-green); }
+        
+        .log-container { position: relative; background-color: var(--bg-dark); border: 1px solid var(--card-border); border-radius: 12px; min-height: 150px; max-height: 200px; overflow-y: auto; padding: 15px; font-family: 'Roboto Mono', monospace; margin-top: 16px; }
+        #log-output { margin: 0; font-size: 0.9em; white-space: pre-wrap; word-wrap: break-word; color: var(--accent-green); }
+        .progress-container { display: none; margin-top: 10px; font-size: 0.85em; }
+        .progress-bar-bg { width: 100%; height: 8px; background-color: var(--card-border); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .progress-bar { width: 0%; height: 100%; background-color: var(--accent-green); border-radius: 4px; transition: width 0.1s linear; }
+
+        .stepper-button { width: 100%; margin-top: 16px; padding: 12px 20px; border: none; border-radius: 50px; background: var(--accent-green); color: var(--text-dark); font-weight: 700; font-size: 1.1em; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 20px rgba(0, 255, 137, 0.2); }
+        .stepper-button:hover { transform: translateY(-3px); box-shadow: 0 5px 30px rgba(0, 255, 137, 0.4); } 
+        .stepper-button:disabled { cursor: not-allowed; background: var(--bg-medium); color: var(--text-secondary); transform: none; box-shadow: none; border: 1px solid var(--card-border); }
+        .stepper-button.disconnect { background: var(--accent-red); color: var(--text-primary); box-shadow: 0 0 20px rgba(248, 81, 73, 0.3); } 
+        .stepper-button.disconnect:hover { box-shadow: 0 5px 30px rgba(248, 81, 73, 0.4); }
+
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 16px; }
+        .info-card { background-color: var(--bg-dark); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); }
+        .info-card .label { display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px; }
+        .info-card .value { font-size: 1.2em; font-weight: 600; color: var(--text-primary); font-family: 'Roboto Mono', monospace; }
+        .info-card .ping-dot { width: 10px; height: 10px; border-radius: 50%; } .ping-dot.good { background: var(--accent-green); } .ping-dot.medium { background: var(--accent-yellow); } .ping-dot.bad { background: var(--accent-red); }
+        .info-card.full-width { grid-column: 1 / -1; text-align: left; }
+        .info-card.full-width .value { font-size: 1.4em; color: var(--accent-green); }
+
+        /* PÁGINA TERMINAL E SOBRE (Estilos mantidos) */
+        #page-terminal { padding: 0; height: 100%;}
+        .terminal-window { display: flex; flex-direction: column; height: 100%; background-color: var(--bg-dark); font-family: 'Roboto Mono', monospace; font-size: 0.95em; }
+        .terminal-history { flex-grow: 1; overflow-y: auto; padding: 15px; white-space: pre-wrap; word-wrap: break-word; }
+        .terminal-history .response { color: var(--text-primary); }
+        .terminal-history .response.error { color: var(--accent-red); }
+        .terminal-input-line { display: flex; align-items: center; padding: 10px 15px; background-color: #000; border-top: 1px solid var(--card-border); flex-shrink: 0; }
+        .terminal-prompt { color: var(--accent-green); margin-right: 8px; }
+        #terminal-input { flex-grow: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-family: 'Roboto Mono', monospace; font-size: 1em; }
+        .cursor { display: inline-block; width: 9px; height: 1.2em; background-color: var(--accent-green); animation: blink 1s step-end infinite; margin-left: 4px; vertical-align: middle; }
+        @keyframes blink { 50% { opacity: 0; } }
+        #page-about { justify-content: center; text-align: center; }
+        #page-about .about-logo { width: 80px; height: 80px; margin: 0 auto 20px; }
+        #page-about h2 { font-size: 2.5rem; font-weight: 700; color: var(--accent-green); margin-bottom: 15px; }
+        #page-about p { max-width: 450px; margin: 0 auto 25px; line-height: 1.7; color: var(--text-secondary); }
+        #page-about .version { font-family: 'Roboto Mono', monospace; font-size: 0.9em; color: #555; }
+    </style>
+</head>
+<body>
+    <div id="preloader"><svg class="loader-svg" viewBox="0 0 110 110"><circle class="bg-circle" cx="55" cy="55" r="50" fill="none" stroke-width="10"/><circle class="fg-circle" cx="55" cy="55" r="50" fill="none" stroke-width="10" stroke-linecap="round"/><text class="k-letter" x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-family="Poppins" font-size="50" font-weight="700">K</text></svg></div>
+    <div class="app-container">
+        <div class="app-layout" id="app-layout">
+            <div class="nav-menu-container"><div class="nav-button-bar" id="nav-button-bar"><span class="nav-indicator"></span><button class="button" data-page="page-connect" aria-label="Conexão"><svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286zm0 13.036h.008v.008h-.008v-.008z"></path></svg></button><button class="button" data-page="page-terminal" aria-label="Terminal"><svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"></path></svg></button><button class="button" data-page="page-about" aria-label="Sobre"><svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></button></div></div>
+            <div class="main-content">
+                <!-- PÁGINA DE CONEXÃO -->
+                <div class="page" id="page-connect">
+                    <div class="stepper-wrapper">
+                        <div class="stepper-box">
+                            <!-- ETAPA 1: SELEÇÃO DE SERVIDOR -->
+                            <div class="stepper-step" id="step-1">
+                                <div class="stepper-line"></div>
+                                <div class="stepper-circle">1</div>
+                                <div class="stepper-content">
+                                    <div class="stepper-title">Selecionar Servidor</div>
+                                    <div class="stepper-status" id="status-1">Pendente</div>
+                                    <div class="stepper-content-inner">
+                                        <button id="server-select-trigger" class="server-select-btn">
+                                            <div class="btn-content">
+                                                <svg class="icon globe-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9V3m-9 9h18" /></svg>
+                                                <span id="server-select-text">Escolha um local de conexão...</span>
+                                            </div>
+                                            <svg class="icon chevron-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- ETAPA 2: CONEXÃO -->
+                            <div class="stepper-step" id="step-2">
+                                <div class="stepper-line"></div>
+                                <div class="stepper-circle">2</div>
+                                <div class="stepper-content">
+                                    <div class="stepper-title">Conectar</div>
+                                    <div class="stepper-status" id="status-2">Aguardando</div>
+                                    <div class="stepper-content-inner">
+                                        <button id="connect-btn" class="stepper-button" disabled>Conectar</button>
+                                        <div class="log-container" id="log-container">
+                                            <pre id="log-output"></pre>
+                                            <div class="progress-container" id="progress-container">
+                                                <span id="progress-text"></span>
+                                                <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- ETAPA 3: STATUS -->
+                            <div class="stepper-step" id="step-3">
+                                <div class="stepper-line"></div>
+                                <div class="stepper-circle">3</div>
+                                <div class="stepper-content">
+                                    <div class="stepper-title">Status da Conexão</div>
+                                    <div class="stepper-status" id="status-3">Desconectado</div>
+                                    <div class="stepper-content-inner">
+                                        <div class="info-card full-width">
+                                            <div class="label">Seu novo endereço de IP</div>
+                                            <div class="value" id="dashboard-ip">---.---.---.---</div>
+                                        </div>
+                                        <div class="dashboard-grid">
+                                            <div class="info-card"><div class="label">Latência</div><div class="value" id="dashboard-ping">-- ms</div></div>
+                                            <div class="info-card"><div class="label">Protocolo</div><div class="value" id="dashboard-protocol">OpenVPN</div></div>
+                                            <div class="info-card"><div class="label">Download</div><div class="value" id="dashboard-download">-- Mbps</div></div>
+                                            <div class="info-card"><div class="label">Upload</div><div class="value" id="dashboard-upload">-- Mbps</div></div>
+                                        </div>
+                                        <button id="disconnect-btn-stepper" class="stepper-button disconnect">Desconectar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- OUTRAS PÁGINAS -->
+                <div class="page" id="page-terminal"></div>
+                <div class="page" id="page-about"></div>
+            </div>
+        </div>
+    </div>
+    <div class="search-modal-overlay" id="search-modal-overlay"></div>
+    <div class="search-modal" id="search-modal"></div>
+    <div id="notification-toast"></div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const ui = {
+            appLayout: document.getElementById('app-layout'), preloader: document.getElementById('preloader'), navBar: document.getElementById('nav-button-bar'), navButtons: document.querySelectorAll('.nav-button-bar .button'), pages: document.querySelectorAll('.page'), notificationToast: document.getElementById('notification-toast'),
+            serverSelectTrigger: document.getElementById('server-select-trigger'), serverSelectText: document.getElementById('server-select-text'), searchModalOverlay: document.getElementById('search-modal-overlay'), searchModal: document.getElementById('search-modal'),
+            // Stepper Elements
+            step1: document.getElementById('step-1'), status1: document.getElementById('status-1'),
+            step2: document.getElementById('step-2'), status2: document.getElementById('status-2'), connectBtn: document.getElementById('connect-btn'), logOutput: document.getElementById('log-output'),
+            step3: document.getElementById('step-3'), status3: document.getElementById('status-3'), disconnectBtnStepper: document.getElementById('disconnect-btn-stepper'),
+            // Progress and Dashboard
+            progressContainer: document.getElementById('progress-container'), progressBar: document.getElementById('progress-bar'), progressText: document.getElementById('progress-text'),
+            ip: document.getElementById('dashboard-ip'), ping: document.getElementById('dashboard-ping'), download: document.getElementById('dashboard-download'), upload: document.getElementById('dashboard-upload'),
+            // Terminal
+            terminalHistory: document.getElementById('terminal-history'), terminalInput: document.getElementById('terminal-input')
+        };
+        const state = {
+            isConnected: false, isConnecting: false, notificationTimer: null, speedInterval: null, selectedServer: null,
+            allServers: [
+                { id: 'br-sao-paulo', ip: '201.18.55.10', country: 'Brasil', city: 'São Paulo', flag: '🇧🇷', ping: 35, files: 1250 }, { id: 'us-new-york', ip: '68.183.102.44', country: 'Estados Unidos', city: 'New York', flag: '🇺🇸', ping: 63, files: 900 }, { id: 'gb-london', ip: '178.62.2.140', country: 'Reino Unido', city: 'London', flag: '🇬🇧', ping: 88, files: 780 }, { id: 'jp-tokyo', ip: '160.16.202.13', country: 'Japão', city: 'Tokyo', flag: '🇯🇵', ping: 154, files: 550 }, { id: 'de-frankfurt', ip: '139.162.130.40', country: 'Alemanha', city: 'Frankfurt', flag: '🇩🇪', ping: 95, files: 820 }, { id: 'au-sydney', ip: '101.0.127.135', country: 'Austrália', city: 'Sydney', flag: '🇦🇺', ping: 210, files: 254 }
+            ]
+        };
+
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        // --- CORE STEPPER UI LOGIC ---
+        const updateStepperUI = (appState) => {
+            // Reset all classes first
+            [ui.step1, ui.step2, ui.step3].forEach(step => step.className = 'stepper-step');
+
+            switch(appState) {
+                case 'initial':
+                    ui.step1.classList.add('stepper-active');
+                    ui.status1.textContent = 'Ação necessária';
+                    ui.step2.classList.add('stepper-pending');
+                    ui.status2.textContent = 'Aguardando';
+                    ui.step3.classList.add('stepper-pending');
+                    ui.status3.textContent = 'Desconectado';
+                    break;
+                case 'server-selected':
+                    ui.step1.classList.add('stepper-completed');
+                    ui.status1.textContent = 'Concluído';
+                    ui.step2.classList.add('stepper-active');
+                    ui.status2.textContent = 'Pronto para conectar';
+                    ui.step3.classList.add('stepper-pending');
+                    ui.status3.textContent = 'Desconectado';
+                    ui.connectBtn.disabled = false;
+                    break;
+                case 'connecting':
+                    ui.step1.classList.add('stepper-completed');
+                    ui.status1.textContent = 'Concluído';
+                    ui.step2.classList.add('stepper-active');
+                    ui.status2.textContent = 'Conectando...';
+                    ui.step3.classList.add('stepper-pending');
+                    ui.status3.textContent = 'Desconectado';
+                    break;
+                case 'connected':
+                    ui.step1.classList.add('stepper-completed');
+                    ui.status1.textContent = 'Concluído';
+                    ui.step2.classList.add('stepper-completed');
+                    ui.status2.textContent = 'Concluído';
+                    ui.step3.classList.add('stepper-active');
+                    ui.status3.textContent = 'Conectado';
+                    break;
+            }
+        };
+
+        // --- Rest of the logic adapted for the stepper ---
+        const init = () => { ui.appLayout.classList.add('loaded'); ui.preloader.classList.add('hidden'); switchPage('page-connect'); ui.searchModal.innerHTML = `<div class="search-modal-header"><svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg><input type="search" id="server-search-input" placeholder="Pesquisar por país ou cidade..."></div><ul class="search-modal-list" id="search-modal-list"></ul>`; Object.assign(ui, { searchInput: document.getElementById('server-search-input'), searchList: document.getElementById('search-modal-list')}); addEventListeners(); renderServerList(state.allServers); updateStepperUI('initial');};
+        const switchPage = (pageId) => { ui.pages.forEach(p => p.classList.remove('active')); ui.navButtons.forEach(b => b.classList.remove('selected')); const targetPage = document.getElementById(pageId); if (targetPage) targetPage.classList.add('active'); const targetButton = document.querySelector(`.button[data-page="${pageId}"]`); if (targetButton) { targetButton.classList.add('selected'); const btnRect = targetButton.getBoundingClientRect(); const navRect = ui.navBar.getBoundingClientRect(); ui.navBar.style.setProperty('--_btn-l', `${btnRect.left - navRect.left}px`); ui.navBar.style.setProperty('--_btn-w', `${btnRect.width}px`); }};
+        const toggleSearchModal = (show) => { ui.searchModalOverlay.classList.toggle('active', show); ui.searchModal.classList.toggle('active', show); if (show) { ui.searchInput.value = ''; renderServerList(state.allServers); ui.searchInput.focus(); } };
+        const renderServerList = (servers) => { ui.searchList.innerHTML = servers.length ? servers.map(s => `<li data-server-id="${s.id}"><span class="flag">${s.flag}</span><div class="server-name"><span class="country">${s.country}</span><div class="city">${s.city}</div></div></li>`).join('') : '<li class="no-results" style="text-align:center; padding: 20px; color: var(--text-secondary);">Nenhum servidor encontrado.</li>'; };
+        const selectServer = (serverId) => { state.selectedServer = state.allServers.find(s => s.id === serverId); if (state.selectedServer) { ui.serverSelectText.innerHTML = `<span class="flag">${state.selectedServer.flag}</span> ${state.selectedServer.country} - ${state.selectedServer.city}`; ui.serverSelectTrigger.classList.add('selected'); updateStepperUI('server-selected'); toggleSearchModal(false); } };
+        const showNotification = (message, type = 'success') => { clearTimeout(state.notificationTimer); let icon; switch(type){case 'error': icon = '<svg stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126Z"></path></svg>'; break; case 'info': icon = '<svg stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg>'; break; default: icon = '<svg stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path></svg>'; break;} ui.notificationToast.innerHTML = `${icon}<span>${message}</span>`; ui.notificationToast.className = ``; ui.notificationToast.classList.add(type, 'show'); state.notificationTimer = setTimeout(() => ui.notificationToast.classList.remove('show'), 4000);};
+        const addToLog = (message, color) => { const span = color ? `<span style="color:${color}">${message}</span>` : message; ui.logOutput.innerHTML += `[${new Date().toLocaleTimeString('pt-BR')}]> ${span}\n`; ui.logOutput.scrollTop = ui.logOutput.scrollHeight; };
+        const updateDashboardData = () => { const baseDownload = 1200 / state.selectedServer.ping; const baseUpload = 400 / state.selectedServer.ping; ui.download.textContent = `${(baseDownload + (Math.random() - 0.5) * baseDownload * 0.2).toFixed(2)} Mbps`; ui.upload.textContent = `${(baseUpload + (Math.random() - 0.5) * baseUpload * 0.2).toFixed(2)} Mbps`; };
+        const startDashboardUpdates = () => { if (!state.selectedServer) return; ui.ip.textContent = state.selectedServer.ip; const pingClass = state.selectedServer.ping < 80 ? 'good' : state.selectedServer.ping < 160 ? 'medium' : 'bad'; ui.ping.innerHTML = `${state.selectedServer.ping} ms <span class="ping-dot ${pingClass}"></span>`; clearInterval(state.speedInterval); updateDashboardData(); state.speedInterval = setInterval(updateDashboardData, 2000); };
+        
+        const connectVPN = async () => { if (!state.selectedServer) { showNotification("Selecione um servidor primeiro!", 'error'); return; } if (state.isConnected || state.isConnecting) return; state.isConnecting = true; ui.connectBtn.disabled = true; ui.serverSelectTrigger.disabled = true; updateStepperUI('connecting'); ui.logOutput.innerHTML = ''; addToLog('Iniciando conexão...'); await delay(500); addToLog(`Verificando latência para ${state.selectedServer.country}: <span style="color:var(--accent-blue)">${state.selectedServer.ping}ms</span>`); await delay(1000); await new Promise(resolve => { ui.progressContainer.style.display = 'block'; let loaded = 0; const interval = setInterval(() => { loaded += Math.floor(Math.random() * 50) + 10; if (loaded > state.selectedServer.files) loaded = state.selectedServer.files; ui.progressBar.style.width = `${(loaded / state.selectedServer.files) * 100}%`; ui.progressText.textContent = `Carregando pacotes: ${loaded}/${state.selectedServer.files}`; if (loaded === state.selectedServer.files) { clearInterval(interval); setTimeout(() => { ui.progressContainer.style.display = 'none'; resolve(); }, 300); } }, 50); }); addToLog('Estabelecendo túnel criptografado...', 'var(--accent-blue)'); await delay(1000); state.isConnected = true; state.isConnecting = false; startDashboardUpdates(); updateStepperUI('connected'); addToLog('CONEXÃO SEGURA ESTABELECIDA!', 'var(--accent-green)'); showNotification(`Conectado a ${state.selectedServer.country}`); };
+        const disconnectVPN = () => { if (!state.isConnected) return; addToLog('Encerrando conexão...'); clearInterval(state.speedInterval); state.isConnected = false; ui.serverSelectTrigger.disabled = false; updateStepperUI('server-selected'); addToLog('Você foi desconectado.'); showNotification('Desconectado com sucesso', 'info'); };
+        
+        function addEventListeners() {
+            window.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); toggleSearchModal(!ui.searchModal.classList.contains('active')); } if (e.key === 'Escape' && ui.searchModal.classList.contains('active')) { toggleSearchModal(false); }});
+            ui.navButtons.forEach(b => b.addEventListener('click', () => switchPage(b.dataset.page)));
+            ui.serverSelectTrigger.addEventListener('click', () => toggleSearchModal(true));
+            ui.searchModalOverlay.addEventListener('click', () => toggleSearchModal(false));
+            ui.searchInput.addEventListener('input', (e) => { const query = e.target.value.toLowerCase(); const filteredServers = state.allServers.filter(s => `${s.country} ${s.city}`.toLowerCase().includes(query)); renderServerList(filteredServers); });
+            ui.searchList.addEventListener('click', (e) => { const li = e.target.closest('li[data-server-id]'); if (li) { selectServer(li.dataset.serverId); } });
+            ui.connectBtn.addEventListener('click', connectVPN);
+            ui.disconnectBtnStepper.addEventListener('click', disconnectVPN);
+        }
+
+        init();
+    });
+    </script>
+</body>
+</html>
