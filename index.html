@@ -176,7 +176,7 @@ function search() {
     const iframe = document.getElementById('yt-audio');
     iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
 
-    // Mostrar GUI de carregamento
+    // Mostrar gui de carregamento
     const loading = document.getElementById('loading');
     const results = document.getElementById('results');
     results.style.display = 'none';
